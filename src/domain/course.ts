@@ -28,6 +28,32 @@ export const ELEMENT_LABELS: Record<ElementType, string> = {
 
 export const NUMBERED_TYPES: readonly ElementType[] = ['gate', 'combination', 'delay_gate'];
 
+/** Types where the user can choose a single pole or a pair. */
+export const POLE_TYPES: readonly ElementType[] = [
+  'gate',
+  'combination',
+  'delay_gate',
+  'panel',
+  'training_pole',
+];
+
+export const RED = '#dc2626';
+export const BLUE = '#2563eb';
+export const ELEMENT_COLOURS = [RED, BLUE] as const;
+export type ElementColour = (typeof ELEMENT_COLOURS)[number];
+export const COLOUR_LABELS: Record<ElementColour, string> = { [RED]: 'Red', [BLUE]: 'Blue' };
+
+/** Maps any legacy colour value onto red or blue. */
+export function toRedBlue(value: unknown): ElementColour {
+  if (value === RED || value === BLUE) return value;
+  if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) {
+    const r = parseInt(value.slice(1, 3), 16);
+    const b = parseInt(value.slice(5, 7), 16);
+    return b > r ? BLUE : RED;
+  }
+  return RED;
+}
+
 const DEFAULT_WIDTH: Record<ElementType, number> = {
   start: 6,
   finish: 6,
@@ -39,18 +65,16 @@ const DEFAULT_WIDTH: Record<ElementType, number> = {
   hazard: 3,
 };
 
-const DEFAULT_COLOUR: Record<ElementType, string> = {
-  start: '#16a34a',
-  finish: '#111827',
-  gate: '#dc2626',
-  combination: '#2563eb',
-  delay_gate: '#f59e0b',
-  panel: '#dc2626',
-  training_pole: '#9333ea',
-  hazard: '#f97316',
+const DEFAULT_COLOUR: Record<ElementType, ElementColour> = {
+  start: BLUE,
+  finish: BLUE,
+  gate: RED,
+  combination: BLUE,
+  delay_gate: BLUE,
+  panel: RED,
+  training_pole: RED,
+  hazard: RED,
 };
-
-const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use a hex colour like #dc2626');
 
 export const elementSchema = z.object({
   id: z.string().min(1),
@@ -59,8 +83,9 @@ export const elementSchema = z.object({
   y: z.number().finite(),
   rotationDeg: z.number().finite(),
   width: z.number().positive().max(100),
+  poles: z.union([z.literal(1), z.literal(2)]),
   number: z.number().int().positive().nullable(),
-  colour,
+  colour: z.enum(ELEMENT_COLOURS),
   elevation: z.number().finite().nullable(),
   notes: z.string().max(1000),
   source: z.enum(DATA_SOURCES),
@@ -101,6 +126,7 @@ export function createElement(
     y,
     rotationDeg: 0,
     width: DEFAULT_WIDTH[type],
+    poles: type === 'training_pole' ? 1 : 2,
     number: null,
     colour: DEFAULT_COLOUR[type],
     elevation: null,
@@ -110,7 +136,12 @@ export function createElement(
   };
 }
 
-export function createCourse(projectId: string, width: number, length: number, now = new Date()): Course {
+export function createCourse(
+  projectId: string,
+  width: number,
+  length: number,
+  now = new Date(),
+): Course {
   return courseSchema.parse({
     schemaVersion: 1,
     id: crypto.randomUUID(),

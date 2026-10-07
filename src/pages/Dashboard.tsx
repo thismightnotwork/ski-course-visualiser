@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import { COURSE_TYPE_LABELS, SURFACE_LABELS } from '../domain/project';
+import { useCourses } from '../store/courses';
 import { useProjects } from '../store/projects';
 
 export default function Dashboard() {
   const projects = useProjects((s) => s.projects);
   const removeProject = useProjects((s) => s.removeProject);
+  const removeCourse = useCourses((s) => s.removeCourse);
   const sorted = [...projects].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   return (
@@ -44,8 +46,13 @@ export default function Dashboard() {
                   type="button"
                   className="rounded border border-red-600 px-3 py-1 text-red-700 dark:text-red-400"
                   onClick={() => {
-                    if (window.confirm(`Delete "${p.name}"? This cannot be undone.`)) {
+                    if (
+                      window.confirm(
+                        `Delete "${p.name}" and its course? This cannot be undone.`,
+                      )
+                    ) {
                       removeProject(p.id);
+                      removeCourse(p.id);
                     }
                   }}
                 >

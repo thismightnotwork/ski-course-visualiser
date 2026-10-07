@@ -1,4 +1,4 @@
-import { NUMBERED_TYPES, type Course, type CourseElement } from './course';
+import { NUMBERED_TYPES, POLE_TYPES, type Course, type CourseElement } from './course';
 
 export interface Point {
   x: number;
@@ -17,8 +17,17 @@ export function toWorld(p: Point, origin: Point): Point {
   return { x: p.x + origin.x, y: p.y + origin.y };
 }
 
-/** End points of an element. Rotation 0 places them left and right of the centre along x. */
+/** True when the element is drawn as one pole rather than a pair. */
+export function isSinglePole(el: CourseElement): boolean {
+  return el.poles === 1 && POLE_TYPES.includes(el.type);
+}
+
+/**
+ * End points of an element. Rotation 0 places them left and right of the centre along x.
+ * A single pole returns the centre point twice.
+ */
 export function elementEnds(el: CourseElement): [Point, Point] {
+  if (isSinglePole(el)) return [{ x: el.x, y: el.y }, { x: el.x, y: el.y }];
   const rad = (el.rotationDeg * Math.PI) / 180;
   const dx = (Math.cos(rad) * el.width) / 2;
   const dy = (Math.sin(rad) * el.width) / 2;
@@ -45,7 +54,11 @@ export function verticalDrop(length: number, slopeAngleDeg: number): number {
   return length * Math.sin((slopeAngleDeg * Math.PI) / 180);
 }
 
-export function distanceBetween(elements: CourseElement[], idA: string, idB: string): number | null {
+export function distanceBetween(
+  elements: CourseElement[],
+  idA: string,
+  idB: string,
+): number | null {
   const a = elements.find((e) => e.id === idA);
   const b = elements.find((e) => e.id === idB);
   return a && b ? distance(a, b) : null;

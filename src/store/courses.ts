@@ -5,6 +5,7 @@ import {
   createCourse as buildCourse,
   createElement,
   elementSchema,
+  toRedBlue,
   type Course,
   type CourseElement,
   type ElementType,
@@ -22,9 +23,18 @@ interface CourseState {
   past: Record<string, Course[]>;
   future: Record<string, Course[]>;
   createCourse: (projectId: string, width: number, length: number) => boolean;
+  removeCourse: (projectId: string) => void;
   checkpoint: (projectId: string) => void;
   setCourseFields: (projectId: string, patch: CoursePatch) => boolean;
-  addElement: (projectId: string, type: ElementType, x: number, y: number) => string | null;
+  replaceCourse: (projectId: string, incoming: Course) => boolean;
+  replaceElements: (projectId: string, elements: CourseElement[]) => boolean;
+  addElement: (
+    projectId: string,
+    type: ElementType,
+    x: number,
+    y: number,
+    overrides?: Partial<CourseElement>,
+  ) => string | null;
   updateElement: (
     projectId: string,
     id: string,
@@ -40,6 +50,24 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function finalise(c: Course): Course {
   return { ...c, elements: numberGates(c.elements), updatedAt: new Date().toISOString() };
+}
+
+/** Upgrades courses saved before colours were limited to red/blue and poles were added. */
+export function migrateCourses(courses: Record<string, Course>): Record<string, Course> {
+  return Object.fromEntries(
+    Object.entries(courses).map(([id, c]) => [
+      id,
+      {
+        ...c,
+        elements: c.elements.map((e) => {
+          const legacy = e as unknown as { poles?: unknown; colour?: unknown };
+          const poles =
+            legacy.poles === 1 ? 1 : legacy.poles === 2 ? 2 : e.type === 'training_pole' ? 1 : 2;
+          return { ...e, colour: toRedBlue(legacy.colour), poles } as CourseElement;
+        }),
+      },
+    ]),
+  );
 }
 
 export const useCourses = create<CourseState>()(
@@ -70,6 +98,16 @@ export const useCourses = create<CourseState>()(
             return false;
           }
         },
+        removeCourse: (projectId) =>
+          set((s) => {
+            const without = <T>(rec: Record<string, T>) =>
+              Object.fromEntries(Object.entries(rec).filter(([k]) => k !== projectId));
+            return {
+              courses: without(s.courses),
+              past: without(s.past),
+              future: without(s.future),
+            };
+          }),
         checkpoint: (projectId) => set((s) => pushPast(s, projectId)),
         setCourseFields: (projectId, patch) => {
           const c = get().courses[projectId];
@@ -82,10 +120,40 @@ export const useCourses = create<CourseState>()(
           }));
           return true;
         },
-        addElement: (projectId, type, x, y) => {
+        replaceCourse: (projectId, incoming) => {
+          const c = get().courses[projectId];
+          const parsed = courseSchema.safeParse({
+            ...incoming,
+            projectId,
+            id: c?.id ?? incoming.id,
+          });
+          if (!parsed.success) return false;
+          set((s) => ({
+            ...pushPast(s, projectId),
+            courses: { ...s.courses, [projectId]: finalise(parsed.data) },
+          }));
+          return true;
+        },
+        replaceElements: (projectId, elements) => {
+          const c = get().courses[projectId];
+          if (!c) return false;
+          const parsed = courseSchema.safeParse({ ...c, elements });
+          if (!parsed.success) return false;
+          set((s) => ({
+            ...pushPast(s, projectId),
+            courses: { ...s.courses, [projectId]: finalise(parsed.data) },
+          }));
+          return true;
+        },
+        addElement: (projectId, type, x, y, overrides = {}) => {
           const c = get().courses[projectId];
           if (!c || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-          const el = createElement(type, round2(x), round2(y));
+          const parsed = elementSchema.safeParse({
+            ...createElement(type, round2(x), round2(y)),
+            ...overrides,
+          });
+          if (!parsed.success) return null;
+          const el = parsed.data;
           set((s) => ({
             ...pushPast(s, projectId),
             courses: {
@@ -148,6 +216,14 @@ export const useCourses = create<CourseState>()(
           }),
       };
     },
-    { name: 'scv.courses.v1', partialize: (s) => ({ courses: s.courses }) },
+    {
+      name: 'scv.courses.v1',
+      version: 2,
+      partialize: (s) => ({ courses: s.courses }),
+      migrate: (persisted, version) => {
+        const saved = (persisted as { courses?: Record<string, Course> } | null)?.courses ?? {};
+        return { courses: version < 2 ? migrateCourses(saved) : saved };
+      },
+    },
   ),
 );

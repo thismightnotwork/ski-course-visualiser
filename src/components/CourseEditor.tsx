@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
+  COLOUR_LABELS,
   DATA_SOURCES,
+  ELEMENT_COLOURS,
   ELEMENT_LABELS,
   ELEMENT_TYPES,
+  POLE_TYPES,
   type Course,
+  type CourseElement,
+  type ElementColour,
   type ElementType,
 } from '../domain/course';
 import { boundsWarnings, verticalDrop } from '../domain/geometry';
@@ -11,6 +16,7 @@ import type { Project } from '../domain/project';
 import { formatLength, fromMetres, toMetres, unitLabel } from '../domain/units';
 import { useCourses } from '../store/courses';
 import CourseCanvas from './CourseCanvas';
+import ImportExportPanel from './ImportExportPanel';
 import NumberField from './NumberField';
 
 const btn = 'rounded border border-slate-400 px-3 py-1 text-sm disabled:opacity-40';
@@ -71,10 +77,14 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
   const [tool, setTool] = useState<ElementType | null>(null);
   const [showGrid, setShowGrid] = useState(true);
   const [showGuides, setShowGuides] = useState(true);
+  const [placeColour, setPlaceColour] = useState<ElementColour | 'auto'>('auto');
+  const [placePoles, setPlacePoles] = useState<'auto' | '1' | '2'>('auto');
 
   const dv = (m: number) => fromMetres(m, units);
   const selected = course.elements.find((e) => e.id === selectedId) ?? null;
   const warnings = boundsWarnings(course);
+  const hasPoleChoice = selected !== null && POLE_TYPES.includes(selected.type);
+  const showWidth = selected !== null && !(hasPoleChoice && selected.poles === 1);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -105,7 +115,7 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [pid, selectedId]);
 
-  const setEl = (patch: Parameters<typeof actions.updateElement>[2]) =>
+  const setEl = (patch: Partial<CourseElement>) =>
     selected ? actions.updateElement(pid, selected.id, patch) : false;
 
   return (
@@ -136,7 +146,36 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
         <button type="button" className={btn} disabled={!canRedo} onClick={() => actions.redo(pid)}>
           Redo
         </button>
-        <label className="text-sm">
+      </div>
+      <div className="flex flex-wrap items-center gap-4 text-sm">
+        <label>
+          New colour{' '}
+          <select
+            className="rounded border border-slate-400 bg-white p-1 dark:bg-slate-800"
+            value={placeColour}
+            onChange={(e) => setPlaceColour(e.target.value as ElementColour | 'auto')}
+          >
+            <option value="auto">Default</option>
+            {ELEMENT_COLOURS.map((c) => (
+              <option key={c} value={c}>
+                {COLOUR_LABELS[c]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          New poles{' '}
+          <select
+            className="rounded border border-slate-400 bg-white p-1 dark:bg-slate-800"
+            value={placePoles}
+            onChange={(e) => setPlacePoles(e.target.value as 'auto' | '1' | '2')}
+          >
+            <option value="auto">Default</option>
+            <option value="1">Single pole</option>
+            <option value="2">Pair of poles</option>
+          </select>
+        </label>
+        <label>
           <input
             type="checkbox"
             checked={showGrid}
@@ -144,7 +183,7 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
           />{' '}
           Grid
         </label>
-        <label className="text-sm">
+        <label>
           <input
             type="checkbox"
             checked={showGuides}
@@ -172,7 +211,10 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
           onSelect={setSelectedId}
           onPlace={(x, y) => {
             if (!tool) return;
-            const id = actions.addElement(pid, tool, x, y);
+            const overrides: Partial<CourseElement> = {};
+            if (placeColour !== 'auto') overrides.colour = placeColour;
+            if (placePoles !== 'auto') overrides.poles = placePoles === '1' ? 1 : 2;
+            const id = actions.addElement(pid, tool, x, y, overrides);
             if (id) setSelectedId(id);
           }}
           onDragStart={() => actions.checkpoint(pid)}
@@ -253,6 +295,33 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
                   </select>
                 </label>
                 <p className="text-xs">Gate number: {selected.number ?? 'not numbered'}</p>
+                {hasPoleChoice && (
+                  <label className="block text-sm">
+                    Poles
+                    <select
+                      className={input}
+                      value={String(selected.poles)}
+                      onChange={(e) => setEl({ poles: e.target.value === '1' ? 1 : 2 })}
+                    >
+                      <option value="1">Single pole</option>
+                      <option value="2">Pair of poles</option>
+                    </select>
+                  </label>
+                )}
+                <label className="block text-sm">
+                  Colour
+                  <select
+                    className={input}
+                    value={selected.colour}
+                    onChange={(e) => setEl({ colour: e.target.value as ElementColour })}
+                  >
+                    {ELEMENT_COLOURS.map((c) => (
+                      <option key={c} value={c}>
+                        {COLOUR_LABELS[c]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <NumberField
                   label="X"
                   unit={u}
@@ -265,17 +334,21 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
                   value={dv(selected.y)}
                   onCommit={(v) => v !== null && setEl({ y: toMetres(v, units) })}
                 />
-                <NumberField
-                  label="Rotation (deg)"
-                  value={selected.rotationDeg}
-                  onCommit={(v) => v !== null && setEl({ rotationDeg: v })}
-                />
-                <NumberField
-                  label="Width"
-                  unit={u}
-                  value={dv(selected.width)}
-                  onCommit={(v) => v !== null && setEl({ width: toMetres(v, units) })}
-                />
+                {showWidth && (
+                  <>
+                    <NumberField
+                      label="Rotation (deg)"
+                      value={selected.rotationDeg}
+                      onCommit={(v) => v !== null && setEl({ rotationDeg: v })}
+                    />
+                    <NumberField
+                      label="Width"
+                      unit={u}
+                      value={dv(selected.width)}
+                      onCommit={(v) => v !== null && setEl({ width: toMetres(v, units) })}
+                    />
+                  </>
+                )}
                 <NumberField
                   label="Elevation"
                   unit={u}
@@ -283,18 +356,6 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
                   value={selected.elevation === null ? null : dv(selected.elevation)}
                   onCommit={(v) => setEl({ elevation: v === null ? null : toMetres(v, units) })}
                 />
-                <label className="block text-sm">
-                  Colour
-                  <input
-                    type="color"
-                    className="mt-1 block h-8 w-full"
-                    value={selected.colour}
-                    onFocus={() => actions.checkpoint(pid)}
-                    onChange={(e) =>
-                      actions.updateElement(pid, selected.id, { colour: e.target.value }, false)
-                    }
-                  />
-                </label>
                 <label className="block text-sm">
                   Position source
                   <select
@@ -342,6 +403,8 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
             )}
           </section>
 
+          <ImportExportPanel project={project} course={course} />
+
           <section className="rounded border border-slate-400 p-3">
             <h2 className="font-semibold">Elements ({course.elements.length})</h2>
             <ul className="mt-2 max-h-48 space-y-1 overflow-auto text-sm">
@@ -369,5 +432,9 @@ function EditorBody({ project, course }: { project: Project; course: Course }) {
 
 export default function CourseEditor({ project }: { project: Project }) {
   const course = useCourses((s) => s.courses[project.id]);
-  return course ? <EditorBody project={project} course={course} /> : <SetupForm project={project} />;
+  return course ? (
+    <EditorBody project={project} course={course} />
+  ) : (
+    <SetupForm project={project} />
+  );
 }

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { ELEMENT_LABELS, type Course, type CourseElement } from '../domain/course';
-import { elementEnds } from '../domain/geometry';
+import { elementEnds, isSinglePole } from '../domain/geometry';
 import { formatLength, type Units } from '../domain/units';
 
 interface Props {
@@ -106,69 +106,84 @@ export default function CourseCanvas({
     if (d?.kind === 'pan' && d.moved < 3) onSelect(null);
   };
 
-  const renderElement = (el: CourseElement) => {
+  const renderShape = (el: CourseElement, selected: boolean) => {
     const [a, b] = elementEnds(el);
-    const selected = el.id === selectedId;
-    const label = el.number !== null ? String(el.number) : ELEMENT_LABELS[el.type];
+    if (el.type === 'hazard') {
+      return (
+        <rect
+          x={-el.width / 2}
+          y={-el.width / 4}
+          width={el.width}
+          height={el.width / 2}
+          transform={`translate(${el.x} ${el.y}) rotate(${el.rotationDeg})`}
+          fill={el.colour}
+          fillOpacity={0.3}
+          stroke={selected ? '#0ea5e9' : el.colour}
+          strokeWidth={selected ? 0.25 : 0.1}
+        />
+      );
+    }
+    if (isSinglePole(el)) {
+      return (
+        <>
+          {selected && <circle cx={el.x} cy={el.y} r={0.7} fill="#0ea5e9" opacity={0.4} />}
+          <circle cx={el.x} cy={el.y} r={0.3} fill={el.colour} />
+          <circle cx={el.x} cy={el.y} r={0.9} fill="transparent" />
+        </>
+      );
+    }
     const thick = el.type === 'start' || el.type === 'finish';
+    return (
+      <>
+        {selected && (
+          <line
+            x1={a.x}
+            y1={a.y}
+            x2={b.x}
+            y2={b.y}
+            stroke="#0ea5e9"
+            strokeWidth={0.8}
+            strokeLinecap="round"
+            opacity={0.5}
+          />
+        )}
+        <line
+          x1={a.x}
+          y1={a.y}
+          x2={b.x}
+          y2={b.y}
+          stroke={el.colour}
+          strokeWidth={thick ? 0.35 : 0.18}
+          strokeLinecap="round"
+        />
+        {!thick && (
+          <>
+            <circle cx={a.x} cy={a.y} r={0.22} fill={el.colour} />
+            <circle cx={b.x} cy={b.y} r={0.22} fill={el.colour} />
+          </>
+        )}
+        <line
+          x1={a.x}
+          y1={a.y}
+          x2={b.x}
+          y2={b.y}
+          stroke="transparent"
+          strokeWidth={1}
+          strokeLinecap="round"
+        />
+      </>
+    );
+  };
+
+  const renderElement = (el: CourseElement) => {
+    const label = el.number !== null ? String(el.number) : ELEMENT_LABELS[el.type];
     return (
       <g
         key={el.id}
         style={{ cursor: placing ? 'crosshair' : 'move' }}
         onPointerDown={(e) => onElementDown(e, el.id)}
       >
-        {el.type === 'hazard' ? (
-          <rect
-            x={-el.width / 2}
-            y={-el.width / 4}
-            width={el.width}
-            height={el.width / 2}
-            transform={`translate(${el.x} ${el.y}) rotate(${el.rotationDeg})`}
-            fill={el.colour}
-            fillOpacity={0.3}
-            stroke={selected ? '#0ea5e9' : el.colour}
-            strokeWidth={selected ? 0.25 : 0.1}
-          />
-        ) : (
-          <>
-            {selected && (
-              <line
-                x1={a.x}
-                y1={a.y}
-                x2={b.x}
-                y2={b.y}
-                stroke="#0ea5e9"
-                strokeWidth={0.8}
-                strokeLinecap="round"
-                opacity={0.5}
-              />
-            )}
-            <line
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              stroke={el.colour}
-              strokeWidth={thick ? 0.35 : 0.18}
-              strokeLinecap="round"
-            />
-            {!thick && (
-              <>
-                <circle cx={a.x} cy={a.y} r={0.22} fill={el.colour} />
-                <circle cx={b.x} cy={b.y} r={0.22} fill={el.colour} />
-              </>
-            )}
-            <line
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              stroke="transparent"
-              strokeWidth={1}
-              strokeLinecap="round"
-            />
-          </>
-        )}
+        {renderShape(el, el.id === selectedId)}
         <text
           x={el.x}
           y={el.y - 0.7}

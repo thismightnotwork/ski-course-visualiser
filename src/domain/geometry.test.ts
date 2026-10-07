@@ -1,4 +1,4 @@
-import { createElement, type CourseElement } from './course';
+import { createCourse, createElement, type CourseElement } from './course';
 import {
   boundsWarnings,
   distance,
@@ -9,7 +9,6 @@ import {
   toWorld,
   verticalDrop,
 } from './geometry';
-import { createCourse } from './course';
 
 describe('geometry', () => {
   it('computes distance', () => {
@@ -32,6 +31,13 @@ describe('geometry', () => {
     expect(t.y).toBeCloseTo(8);
     expect(b.y).toBeCloseTo(12);
     expect(t.x).toBeCloseTo(5);
+  });
+
+  it('returns the centre twice for a single pole', () => {
+    const g = { ...createElement('gate', 5, 10, 'g'), poles: 1 as const };
+    const [a, b] = elementEnds(g);
+    expect(a).toEqual({ x: 5, y: 10 });
+    expect(b).toEqual({ x: 5, y: 10 });
   });
 
   it('numbers only gates, combinations and delay gates in downhill order', () => {
