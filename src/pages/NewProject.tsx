@@ -45,7 +45,11 @@ export default function NewProject() {
       <label className="block">
         Project name
         <input className={field} {...register('name')} />
-        {errors.name && <span role="alert" className="text-red-600">{errors.name.message}</span>}
+        {errors.name && (
+          <span role="alert" className="text-red-600">
+            {errors.name.message}
+          </span>
+        )}
       </label>
       <label className="block">
         Location
@@ -74,7 +78,11 @@ export default function NewProject() {
       <label className="block">
         Date
         <input type="date" className={field} {...register('date')} />
-        {errors.date && <span role="alert" className="text-red-600">{errors.date.message}</span>}
+        {errors.date && (
+          <span role="alert" className="text-red-600">
+            {errors.date.message}
+          </span>
+        )}
       </label>
       <label className="block">
         Units

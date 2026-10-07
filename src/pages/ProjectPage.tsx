@@ -8,7 +8,10 @@ export default function ProjectPage() {
   if (!project) {
     return (
       <p>
-        Project not found. <Link to="/" className="underline">Back to dashboard</Link>
+        Project not found.{' '}
+        <Link to="/" className="underline">
+          Back to dashboard
+        </Link>
       </p>
     );
   }
