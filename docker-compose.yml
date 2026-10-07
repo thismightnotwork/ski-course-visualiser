@@ -1,9 +1,0 @@
-services:
-  video-processor:
-    build: ./backend
-    ports:
-      - '8000:8000'
-    environment:
-      CORS_ORIGINS: http://localhost:5173
-      VIDEO_STORAGE: /tmp/scv-video-jobs
-    restart: unless-stopped

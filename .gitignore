@@ -8,7 +8,3 @@ coverage
 __pycache__
 *.sqlite3
 storage/
-backend/.venv/
-backend/**/.venv/
-.pytest_cache/
-.mypy_cache/
