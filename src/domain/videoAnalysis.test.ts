@@ -1,5 +1,5 @@
 import { createCourse } from './course';
-import { applyProcessorJob, draftRunTiming, markerAt, normalisePoint, trackingToCourse, updateTrackingPoint } from './videoAnalysis';
+import { applyProcessorJob, draftRunTiming, markerAt, trackingToCourse, updateTrackingPoint } from './videoAnalysis';
 import { createVideoAnalysis } from './video';
 
 describe('video analysis utilities', () => {
