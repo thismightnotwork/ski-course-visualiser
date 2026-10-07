@@ -34,7 +34,7 @@ export default function Layout() {
           {dark ? 'Light theme' : 'Dark theme'}
         </button>
       </header>
-      <main className="mx-auto max-w-5xl p-4">
+      <main className="mx-auto max-w-7xl p-4">
         <Outlet />
       </main>
     </div>

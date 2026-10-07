@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import CourseEditor from '../components/CourseEditor';
 import { COURSE_TYPE_LABELS, SURFACE_LABELS } from '../domain/project';
 import { useProjects } from '../store/projects';
 
@@ -16,17 +17,17 @@ export default function ProjectPage() {
     );
   }
   return (
-    <article className="space-y-2">
-      <h1 className="text-2xl font-bold">{project.name}</h1>
-      <p>
-        {COURSE_TYPE_LABELS[project.courseType]} / {SURFACE_LABELS[project.surfaceType]} /{' '}
-        {project.location || 'No location'} / {project.date} / units: {project.units}
-      </p>
-      {project.description && <p>{project.description}</p>}
-      {project.notes && <p className="italic">{project.notes}</p>}
-      <p className="rounded border border-amber-500 p-3">
-        The course editor arrives in Phase 2. No course measurements have been entered yet.
-      </p>
+    <article className="space-y-3">
+      <header>
+        <h1 className="text-2xl font-bold">{project.name}</h1>
+        <p className="text-sm">
+          {COURSE_TYPE_LABELS[project.courseType]} / {SURFACE_LABELS[project.surfaceType]} /{' '}
+          {project.location || 'No location'} / {project.date} / units: {project.units}
+        </p>
+        {project.description && <p className="text-sm">{project.description}</p>}
+        {project.notes && <p className="text-sm italic">{project.notes}</p>}
+      </header>
+      <CourseEditor project={project} />
     </article>
   );
 }
