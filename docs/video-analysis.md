@@ -1,10 +1,7 @@
-# Video analysis (browser MVP)
+# Video analysis
 
-The first video feature is intentionally conservative. It does not claim to diagnose ski technique or produce competition-legal measurements.
+Run the local processor with `docker compose up --build`, then start the frontend with `npm run dev`. Upload a supported video from a project’s Video analysis tab and click Analyse video locally. The browser uploads the file to the local FastAPI service, polls a cancellable job, stores tracking samples and lets you mark start, finish and gates manually before generating a draft run.
 
-- Uploads are validated as MP4, MOV or WebM up to 500 MB and kept in browser object URLs during the session. The metadata record is persisted locally; the original binary is not automatically uploaded or publicly shared.
-- Mark video start and finish at the current playback frame. Gate markers can be added manually.
-- `Create approximate tracking draft` currently generates a visible placeholder path with confidence 0. This is an explicit extension point, not a fake detector.
-- `Generate draft run` creates a manual-review run from the start/finish and gate markers. It is not silently treated as ground truth.
-- A production detector should implement the same tracking sample interface, run asynchronously in a cancellable job and record confidence per sample. A future FastAPI/OpenCV/MediaPipe adapter can replace the placeholder without changing the UI data model.
-- Users must have permission to analyse uploaded footage. For minors, obtain appropriate guardian consent and avoid public sharing.
+The current OpenCV detector is a motion-contour baseline. It can be confused by camera movement, snow spray, shadows, other people and changing lighting. It does not reliably identify a skier and does not estimate technique. Every path and speed-related result is approximate, confidence-scored and requires manual review. Do not treat it as medical, biomechanical or competition-legal analysis.
+
+The service is local by default. Users must have permission to analyse footage; for minors, obtain suitable guardian consent and avoid public sharing.
