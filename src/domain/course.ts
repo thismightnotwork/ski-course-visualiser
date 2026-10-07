@@ -93,6 +93,21 @@ export const elementSchema = z.object({
 });
 export type CourseElement = z.infer<typeof elementSchema>;
 
+export const pointSchema = z.object({ x: z.number().finite(), y: z.number().finite() });
+
+/** Photo calibration. Points are image pixel coordinates; the photo itself is stored separately. */
+export const calibrationSchema = z.object({
+  method: z.enum(['quad', 'known_distance']),
+  imageWidth: z.number().positive(),
+  imageHeight: z.number().positive(),
+  quadPoints: z.array(pointSchema).length(4).nullable(),
+  references: z
+    .array(z.object({ a: pointSchema, b: pointSchema, realMetres: z.number().positive() }))
+    .max(20),
+  updatedAt: z.string(),
+});
+export type Calibration = z.infer<typeof calibrationSchema>;
+
 /**
  * Coordinate frame (metres): x runs across the slope (left to right), y runs down the
  * slope surface from the top edge. The course rectangle is x in [0, width], y in [0, length].
@@ -108,6 +123,7 @@ export const courseSchema = z.object({
   startElevation: z.number().finite().nullable(),
   origin: z.object({ x: z.number().finite(), y: z.number().finite() }),
   elements: z.array(elementSchema),
+  calibration: calibrationSchema.nullable().default(null),
   notes: z.string().max(5000),
   updatedAt: z.string(),
 });
@@ -153,6 +169,7 @@ export function createCourse(
     startElevation: null,
     origin: { x: 0, y: 0 },
     elements: [],
+    calibration: null,
     notes: '',
     updatedAt: now.toISOString(),
   });

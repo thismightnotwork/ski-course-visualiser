@@ -15,7 +15,16 @@ import { numberGates } from '../domain/geometry';
 const MAX_HISTORY = 100;
 
 export type CoursePatch = Partial<
-  Pick<Course, 'width' | 'length' | 'slopeAngleDeg' | 'startElevation' | 'notes' | 'dimensionSource'>
+  Pick<
+    Course,
+    | 'width'
+    | 'length'
+    | 'slopeAngleDeg'
+    | 'startElevation'
+    | 'notes'
+    | 'dimensionSource'
+    | 'calibration'
+  >
 >;
 
 interface CourseState {
