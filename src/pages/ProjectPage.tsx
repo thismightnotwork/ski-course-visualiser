@@ -3,17 +3,19 @@ import { Link, useParams } from 'react-router-dom';
 import CourseEditor from '../components/CourseEditor';
 import DistancePanel from '../components/DistancePanel';
 import PhotoCalibration from '../components/PhotoCalibration';
+import RunsTab from '../components/RunsTab';
 import { COURSE_TYPE_LABELS, SURFACE_LABELS } from '../domain/project';
 import { useCourses } from '../store/courses';
 import { useProjects } from '../store/projects';
 
 const Scene3D = lazy(() => import('../components/Scene3D'));
 
-type Tab = 'plan' | 'photo' | '3d';
+type Tab = 'plan' | 'photo' | '3d' | 'runs';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'plan', label: 'Plan (2D)' },
   { id: 'photo', label: 'Photo calibration' },
   { id: '3d', label: '3D view' },
+  { id: 'runs', label: 'Runs' },
 ];
 
 export default function ProjectPage() {
@@ -51,7 +53,11 @@ export default function ProjectPage() {
         {project.notes && <p className='text-sm italic'>{project.notes}</p>}
       </header>
 
-      <div role='tablist' aria-label='Project views' className='flex flex-wrap gap-2'>
+      <div
+        role='tablist'
+        aria-label='Project views'
+        className='flex flex-wrap gap-2 print:hidden'
+      >
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -72,7 +78,8 @@ export default function ProjectPage() {
           {course && <DistancePanel project={project} course={course} />}
         </div>
       )}
-      {tab === 'photo' && (course ? <PhotoCalibration project={project} course={course} /> : needsCourse)}
+      {tab === 'photo' &&
+        (course ? <PhotoCalibration project={project} course={course} /> : needsCourse)}
       {tab === '3d' &&
         (course ? (
           <Suspense fallback={<p>Loading 3D view...</p>}>
@@ -81,6 +88,7 @@ export default function ProjectPage() {
         ) : (
           needsCourse
         ))}
+      {tab === 'runs' && (course ? <RunsTab project={project} course={course} /> : needsCourse)}
     </article>
   );
 }
