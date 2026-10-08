@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { pathPointSchema, type PathPoint } from './path';
+
+export type { PathPoint };
 
 export const MISTAKE_TYPES = [
   'wide_line',
@@ -65,6 +68,7 @@ const runObject = z.object({
   notes: z.string().max(5000),
   mistakes: z.array(mistakeSchema).max(500),
   splits: z.array(splitSchema).max(500),
+  path: z.array(pathPointSchema).max(5000).default([]),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

@@ -3,7 +3,12 @@ import { draftToRun, emptyDraft, newMistakeDraft, newSplitDraft, runToDraft } fr
 import { mistakesToCsv, runsToCsv } from './runExport';
 
 const ctx = { projectId: 'p', courseId: 'c', units: 'metres' as const };
-const valid = (over = {}) => ({ ...emptyDraft('2026-10-07'), skier: 'A', total: '1:23.45', ...over });
+const valid = (over = {}) => ({
+  ...emptyDraft('2026-10-07'),
+  skier: 'A',
+  total: '1:23.45',
+  ...over,
+});
 
 describe('runSchema', () => {
   const base = () => {
@@ -30,6 +35,34 @@ describe('runSchema', () => {
     expect(runSchema.safeParse({ ...base(), splits: [s(1, 6), s(2, 5)] }).success).toBe(false);
     expect(runSchema.safeParse({ ...base(), splits: [s(1, 500)] }).success).toBe(false);
     expect(runSchema.safeParse({ ...base(), splits: [s(1, 5), s(2, 9)] }).success).toBe(true);
+  });
+
+  it('accepts a path with finite coordinates and defaults to [] when missing', () => {
+    const withPath = {
+      ...base(),
+      path: [
+        { x: 1, y: 2 },
+        { x: 3, y: 4 },
+      ],
+    };
+    expect(runSchema.safeParse(withPath).success).toBe(true);
+    expect(runSchema.safeParse(withPath).data?.path).toHaveLength(2);
+
+    const withoutPath = { ...base() };
+    delete (withoutPath as { path?: unknown }).path;
+    const parsed = runSchema.safeParse(withoutPath);
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.path).toEqual([]);
+  });
+
+  it('rejects path with non-finite coordinates', () => {
+    expect(runSchema.safeParse({ ...base(), path: [{ x: NaN, y: 1 }] }).success).toBe(false);
+    expect(runSchema.safeParse({ ...base(), path: [{ x: 1, y: Infinity }] }).success).toBe(false);
+  });
+
+  it('rejects too many path points', () => {
+    const tooMany = Array.from({ length: 5001 }, () => ({ x: 1, y: 1 }));
+    expect(runSchema.safeParse({ ...base(), path: tooMany }).success).toBe(false);
   });
 });
 
@@ -66,13 +99,19 @@ describe('draftToRun', () => {
   it('round-trips through runToDraft', () => {
     const m = { ...newMistakeDraft(), time: '12.5', gate: '3', penalty: '2', notes: 'late' };
     const sp = { ...newSplitDraft(), gate: '2', time: '9.5' };
-    const first = draftToRun(valid({ mistakes: [m], splits: [sp] }), ctx);
+    const path = [
+      { x: 5, y: 10 },
+      { x: 8, y: 30 },
+      { x: 6, y: 60 },
+    ];
+    const first = draftToRun(valid({ mistakes: [m], splits: [sp], path }), ctx);
     if (!first.ok) throw new Error(first.errors.join(','));
     const second = draftToRun(runToDraft(first.run, 'metres'), { ...ctx, id: first.run.id });
     if (!second.ok) throw new Error(second.errors.join(','));
     expect(second.run.mistakes[0].timeSec).toBeCloseTo(12.5);
     expect(second.run.mistakes[0].gateNumber).toBe(3);
     expect(second.run.splits[0].timeSec).toBeCloseTo(9.5);
+    expect(second.run.path).toEqual(path);
   });
 });
 

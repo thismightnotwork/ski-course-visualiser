@@ -1,5 +1,5 @@
 import { draftToRun, emptyDraft } from '../domain/runDraft';
-import { useRuns } from './runs';
+import { migrateRuns, useRuns } from './runs';
 
 const make = (skier = 'A') => {
   const r = draftToRun(
@@ -32,5 +32,41 @@ describe('run store', () => {
     useRuns.getState().addRun(make());
     useRuns.getState().removeProjectRuns('p');
     expect(useRuns.getState().runs.p).toBeUndefined();
+  });
+
+  it('migrates legacy runs without a path field to have empty path', () => {
+    const run = make();
+    const legacyRun = { ...run };
+    delete (legacyRun as { path?: unknown }).path;
+
+    const persisted = { runs: { p: [legacyRun] } };
+    const migrated = migrateRuns(persisted, 1);
+
+    expect(migrated.runs.p[0].path).toEqual([]);
+  });
+
+  it('preserves existing paths during migration', () => {
+    const run = {
+      ...make(),
+      path: [
+        { x: 5, y: 10 },
+        { x: 8, y: 20 },
+      ],
+    };
+    const persisted = { runs: { p: [run] } };
+    const migrated = migrateRuns(persisted, 1);
+
+    expect(migrated.runs.p[0].path).toEqual([
+      { x: 5, y: 10 },
+      { x: 8, y: 20 },
+    ]);
+  });
+
+  it('does not alter runs at the current version', () => {
+    const run = make();
+    const persisted = { runs: { p: [run] } };
+    const migrated = migrateRuns(persisted, 2);
+
+    expect(migrated.runs.p[0].path).toEqual([]);
   });
 });

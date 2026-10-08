@@ -1,9 +1,5 @@
-import {
-  runSchema,
-  type MistakeType,
-  type Run,
-  type Severity,
-} from './run';
+import { runSchema, type MistakeType, type Run, type Severity } from './run';
+import type { PathPoint } from './path';
 import { formatTime, parseTime } from './timing';
 import { fromMetres, toMetres, type Units } from './units';
 
@@ -37,6 +33,7 @@ export interface RunDraft {
   notes: string;
   mistakes: MistakeDraft[];
   splits: SplitDraft[];
+  path: PathPoint[];
 }
 
 export interface DraftContext {
@@ -60,6 +57,7 @@ export const emptyDraft = (today: string): RunDraft => ({
   notes: '',
   mistakes: [],
   splits: [],
+  path: [],
 });
 
 export const newMistakeDraft = (): MistakeDraft => ({
@@ -178,6 +176,7 @@ export function draftToRun(draft: RunDraft, ctx: DraftContext): DraftResult {
     splits,
     createdAt: ctx.createdAt ?? now,
     updatedAt: now,
+    path: draft.path,
   });
   if (!parsed.success) {
     return {
@@ -204,7 +203,8 @@ export function runToDraft(run: Run, units: Units): RunDraft {
       type: m.type,
       time: formatTime(m.timeSec),
       gate: m.gateNumber === null ? '' : String(m.gateNumber),
-      position: m.positionY === null ? '' : String(Math.round(fromMetres(m.positionY, units) * 100) / 100),
+      position:
+        m.positionY === null ? '' : String(Math.round(fromMetres(m.positionY, units) * 100) / 100),
       duration: String(m.durationSec),
       severity: m.severity,
       confidence: String(m.confidence),
@@ -217,5 +217,6 @@ export function runToDraft(run: Run, units: Units): RunDraft {
       gate: String(s.gateNumber),
       time: formatTime(s.timeSec),
     })),
+    path: run.path ?? [],
   };
 }

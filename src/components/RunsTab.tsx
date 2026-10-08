@@ -9,16 +9,22 @@ import { download, slug } from '../lib/download';
 import { useRuns } from '../store/runs';
 import RunEditor from './RunEditor';
 import RunReport from './RunReport';
+import Scene3D from './Scene3D';
 
-type View = { kind: 'list' } | { kind: 'edit'; runId: string | null } | { kind: 'report'; runId: string };
+type View =
+  { kind: 'list' } | { kind: 'edit'; runId: string | null } | { kind: 'report'; runId: string };
 
 const EMPTY: Run[] = [];
 const btn = 'rounded border border-slate-400 px-3 py-1 text-sm';
 
 export default function RunsTab({ project, course }: { project: Project; course: Course }) {
-  const runs = useRuns((s) => s.runs[project.id] ?? EMPTY);
+  const runs = useRuns((state) => state.runs[project.id] ?? EMPTY);
   const [view, setView] = useState<View>({ kind: 'list' });
-  const find = (id: string | null) => runs.find((r) => r.id === id) ?? null;
+  const [showPlayback, setShowPlayback] = useState(false);
+  const [playbackRunId, setPlaybackRunId] = useState<string | null>(null);
+
+  const find = (id: string | null) => runs.find((run) => run.id === id) ?? null;
+  const playbackRun = find(playbackRunId);
 
   if (view.kind === 'edit') {
     return (
@@ -59,29 +65,36 @@ export default function RunsTab({ project, course }: { project: Project; course:
   };
 
   return (
-    <section className='space-y-3'>
-      <div className='flex flex-wrap gap-2'>
+    <section className="space-y-3">
+      <div className="flex flex-wrap gap-2">
         <button
-          type='button'
-          className='rounded bg-sky-700 px-4 py-2 text-white'
+          type="button"
+          className="rounded bg-sky-700 px-4 py-2 text-white"
           onClick={() => setView({ kind: 'edit', runId: null })}
         >
           New run
         </button>
-        <button type='button' className={btn} onClick={addSample}>
+        <button type="button" className={btn} onClick={addSample}>
           Add sample run (demo data)
         </button>
+
+        <button type="button" className={btn} onClick={() => setShowPlayback((value) => !value)}>
+          {showPlayback ? 'Hide 3D playback' : 'Show 3D playback'}
+        </button>
+
         {runs.length > 0 && (
           <>
             <button
-              type='button'
+              type="button"
               className={btn}
-              onClick={() => download(`${slug(project.name)}-runs.csv`, runsToCsv(runs), 'text/csv')}
+              onClick={() =>
+                download(`${slug(project.name)}-runs.csv`, runsToCsv(runs), 'text/csv')
+              }
             >
               Export runs CSV
             </button>
             <button
-              type='button'
+              type="button"
               className={btn}
               onClick={() =>
                 download(
@@ -97,18 +110,65 @@ export default function RunsTab({ project, course }: { project: Project; course:
         )}
       </div>
 
+      {showPlayback && (
+        <section className="space-y-2 rounded border border-slate-400 p-3">
+          <h2 className="text-xl font-semibold">Course playback</h2>
+
+          {runs.length > 0 ? (
+            <div className="flex flex-wrap items-end gap-4 text-sm">
+              <label className="block">
+                Select run for playback
+                <select
+                  className="mt-1 w-full rounded border border-slate-400 bg-white p-1 dark:bg-slate-800"
+                  value={playbackRunId ?? ''}
+                  onChange={(e) => setPlaybackRunId(e.target.value || null)}
+                >
+                  <option value="">No run selected (default route)</option>
+                  {sorted.map((run) => (
+                    <option key={run.id} value={run.id}>
+                      {run.skier} — {formatTime(run.totalTimeSec)} —{' '}
+                      {run.path.length > 0 ? 'custom path' : 'default path'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {playbackRun && (
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  Path: {playbackRun.path.length > 0 ? 'custom route' : 'default route'}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm">
+              No runs saved yet. Create a run first to select it for playback.
+            </p>
+          )}
+
+          <p className="text-sm">
+            This is a simulated skier following the{' '}
+            {playbackRun && playbackRun.path.length > 0
+              ? 'custom path for that run'
+              : 'default course route'}{' '}
+            (start → gates → finish). It does not reconstruct the skier's exact line from video.
+          </p>
+
+          <Scene3D course={course} run={playbackRun ?? undefined} />
+        </section>
+      )}
+
       {sorted.length === 0 ? (
-        <div className='rounded border border-dashed border-slate-400 p-8 text-center'>
-          <h2 className='text-lg font-semibold'>No runs yet</h2>
-          <p className='mt-2 text-sm'>
-            Record a run with its time, penalties and mistakes. Runs are stored in this browser only.
+        <div className="rounded border border-dashed border-slate-400 p-8 text-center">
+          <h2 className="text-lg font-semibold">No runs yet</h2>
+          <p className="mt-2 text-sm">
+            Record a run with its time, penalties and mistakes. Runs are stored in this browser
+            only.
           </p>
         </div>
       ) : (
-        <div className='overflow-x-auto'>
-          <table className='w-full text-sm'>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
             <thead>
-              <tr className='text-left'>
+              <tr className="text-left">
                 <th>Skier</th>
                 <th>Date</th>
                 <th>Raw</th>
@@ -122,33 +182,37 @@ export default function RunsTab({ project, course }: { project: Project; course:
               {sorted.map((r) => {
                 const t = computeTiming(r);
                 return (
-                  <tr key={r.id} className='border-t border-slate-300 dark:border-slate-700'>
+                  <tr key={r.id} className="border-t border-slate-300 dark:border-slate-700">
                     <td>{r.skier}</td>
                     <td>{r.date}</td>
                     <td>{formatTime(t.rawTimeSec)}</td>
                     <td>{formatTime(t.penaltyTotalSec)}</td>
                     <td>{formatTime(t.adjustedTimeSec)}</td>
                     <td>{t.mistakeCount}</td>
-                    <td className='space-x-1 whitespace-nowrap py-1'>
+                    <td className="space-x-1 whitespace-nowrap py-1">
                       <button
-                        type='button'
+                        type="button"
                         className={btn}
                         onClick={() => setView({ kind: 'edit', runId: r.id })}
                       >
                         Edit
                       </button>
                       <button
-                        type='button'
+                        type="button"
                         className={btn}
                         onClick={() => setView({ kind: 'report', runId: r.id })}
                       >
                         Report
                       </button>
                       <button
-                        type='button'
-                        className='rounded border border-red-600 px-3 py-1 text-sm text-red-700 dark:text-red-400'
+                        type="button"
+                        className="rounded border border-red-600 px-3 py-1 text-sm text-red-700 dark:text-red-400"
                         onClick={() => {
-                          if (window.confirm(`Delete the run for "${r.skier}"? This cannot be undone.`)) {
+                          if (
+                            window.confirm(
+                              `Delete the run for "${r.skier}"? This cannot be undone.`,
+                            )
+                          ) {
                             useRuns.getState().removeRun(project.id, r.id);
                           }
                         }}
